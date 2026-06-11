@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
-
-type Tarefa = {
-  texto: string;
-  concluida: boolean;
-};
+import type { Task } from "./types/Task";
 
 function App() {
   const [tarefa, setTarefa] = useState("");
-  const [tarefas, setTarefas] = useState<Tarefa[]>([]);
+  const [tarefas, setTarefas] = useState<Task[]>([]);
+  const [filtro, setFiltro] = useState("todas");
+
+  const [editandoId, setEditandoId] = useState<number | null>(null);
+  const [novoTexto, setNovoTexto] = useState("");
 
   useEffect(() => {
     const tarefasSalvas = localStorage.getItem("tarefas");
@@ -24,32 +24,51 @@ function App() {
   function adicionarTarefa() {
     if (tarefa.trim() === "") return;
 
-    setTarefas([
-      ...tarefas,
-      {
-        texto: tarefa,
-        concluida: false,
-      },
-    ]);
+    const novaTarefa: Task = {
+      id: Date.now(),
+      texto: tarefa,
+      concluida: false,
+    };
 
+    setTarefas([...tarefas, novaTarefa]);
     setTarefa("");
   }
 
-  function removerTarefa(indexParaRemover: number) {
+  function removerTarefa(id: number) {
     const novaLista = tarefas.filter(
-      (_, index) => index !== indexParaRemover
+      (tarefa) => tarefa.id !== id
     );
 
     setTarefas(novaLista);
   }
 
-  function concluirTarefa(index: number) {
-    const novaLista = [...tarefas];
-
-    novaLista[index].concluida =
-      !novaLista[index].concluida;
+  function concluirTarefa(id: number) {
+    const novaLista = tarefas.map((tarefa) =>
+      tarefa.id === id
+        ? {
+            ...tarefa,
+            concluida: !tarefa.concluida,
+          }
+        : tarefa
+    );
 
     setTarefas(novaLista);
+  }
+
+  function salvarEdicao() {
+    const novaLista = tarefas.map((tarefa) =>
+      tarefa.id === editandoId
+        ? {
+            ...tarefa,
+            texto: novoTexto,
+          }
+        : tarefa
+    );
+
+    setTarefas(novaLista);
+
+    setEditandoId(null);
+    setNovoTexto("");
   }
 
   const total = tarefas.length;
@@ -59,6 +78,20 @@ function App() {
   ).length;
 
   const pendentes = total - concluidas;
+
+  const tarefasFiltradas = tarefas.filter(
+    (tarefa) => {
+      if (filtro === "pendentes") {
+        return !tarefa.concluida;
+      }
+
+      if (filtro === "concluidas") {
+        return tarefa.concluida;
+      }
+
+      return true;
+    }
+  );
 
   return (
     <div className="container">
@@ -81,29 +114,82 @@ function App() {
         Adicionar
       </button>
 
+      <div
+        style={{
+          marginTop: "10px",
+          marginBottom: "10px",
+        }}
+      >
+        <button onClick={() => setFiltro("todas")}>
+          Todas
+        </button>
+
+        <button
+          onClick={() => setFiltro("pendentes")}
+        >
+          Pendentes
+        </button>
+
+        <button
+          onClick={() => setFiltro("concluidas")}
+        >
+          Concluídas
+        </button>
+      </div>
+
       <ul>
-        {tarefas.map((item, index) => (
-          <li key={index}>
-            <span
-              style={{
-                textDecoration: item.concluida
-                  ? "line-through"
-                  : "none",
-              }}
-            >
-              {item.texto}
-            </span>
+        {tarefasFiltradas.map((item) => (
+          <li key={item.id}>
+            {editandoId === item.id ? (
+              <>
+                <input
+                  type="text"
+                  value={novoTexto}
+                  onChange={(e) =>
+                    setNovoTexto(e.target.value)
+                  }
+                />
+
+                <button onClick={salvarEdicao}>
+                  Salvar
+                </button>
+              </>
+            ) : (
+              <span
+                style={{
+                  textDecoration:
+                    item.concluida
+                      ? "line-through"
+                      : "none",
+                }}
+              >
+                {item.texto}
+              </span>
+            )}
 
             <button
-              onClick={() => concluirTarefa(index)}
+              onClick={() =>
+                concluirTarefa(item.id)
+              }
             >
               ✅
             </button>
 
             <button
-              onClick={() => removerTarefa(index)}
+              onClick={() =>
+                removerTarefa(item.id)
+              }
             >
               ❌
+            </button>
+
+            <button
+              onClick={() => {
+                setEditandoId(item.id);
+                setNovoTexto(item.texto);
+              }}
+            >
+              ✏️
             </button>
           </li>
         ))}
